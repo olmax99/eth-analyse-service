@@ -18,6 +18,14 @@
 ** Step 2: ..
 
 ** Step 3: Launch Api Server
+- ..
+
+*** Local docker-compose
+#+begin_src
+GET localhost:8805/api/v1/gashourly/2021-Jan-01
+
+http://localhost:8803/swagger/index.html#/
+#+end_src
 
 * General Instructions
 ** 1. The challenge

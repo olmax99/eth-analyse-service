@@ -2,5 +2,6 @@
 */
 !cmd/**
 !pkg/**
+!docs/**
 !go.mod
 !go.sum

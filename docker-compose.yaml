@@ -2,21 +2,31 @@ version: "3"
 services:
   webapi.local:
     build: .
+    restart: always
     ports:
       - "8805:8805"
     command: ./eth-analyse server -run dev
     networks:
       - eth-analyse
     depends_on:
-      - psql.local
+      psql.local:
+        condition: service_healthy
   psql.local:
     image: glassnode/code-challenge-2020-database:latest
+    restart: always
     environment:
       POSTGRES_DB: eth
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
     ports:
       - "6545:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d eth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eth-analyse
 
 networks:
   eth-analyse:

@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	api "eth-analyse-service/pkg"
+	"eth-analyse-service/pkg/api"
 )
 
 func RunServer() int {
