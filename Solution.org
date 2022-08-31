@@ -1,0 +1,12 @@
+#+TITLE: Solution
+#+SETUPFILE: ~/s3sync/org/conf/setup.config
+#+FILETAGS: :recruiting:challenge:eth:analyse
+
+* Technical Choices
+..
+
+** Trade-Offs
+- ..
+
+** Improvements
+- ..
