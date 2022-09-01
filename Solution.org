@@ -2,8 +2,115 @@
 #+SETUPFILE: ~/s3sync/org/conf/setup.config
 #+FILETAGS: :recruiting:challenge:eth:analyse
 
+* FAQ
+- This section is used for myself to collect and research all related questions.
+
+** Accounts, Contract, Transactions and Messages
+*** What is an account?
+- [[https://ethereum.org/en/whitepaper/#ethereum-accounts][https://ethereum.org/en/whitepaper/#ethereum-accounts]]
+- There are *Externally Owned Accounts* and *Contract Accounts*
+
+| #                 | description                                 |
+|-------------------+---------------------------------------------|
+| address           | 20-byte                                     |
+| state transitions | transfer of value and info between accounts |
+| 1. nonce          | unique counter                              |
+| 2. ether balance  | current value                               |
+| 3. contract value | contract identifier                         |
+| 4. storage        |                                             |
+
+**** Contract account
+- contract code
+- message (transaction) => activate code => (1) read/write storage | (2) send
+  message | (3)create new contract account
+
+*** What is a contract?
+- Every contract has exactly one account <= =TODO: needs to be confirmed!!=
+- Autonomous agents
+- Executing specific code when receiving a message within a transaction
+- Controls its own Key/Value store
+- Controls its own Ether balance
+
+*** What is the difference between a tx and a message?
+- A *tx* is the /container/ around a message
+- A *tx* is a signed data package to be sent from an externally owned account
+
+**** 1. Transaction
+#+begin_verse
+ALWAYS PRODUCED BY AN EXTERNAL ACTOR
+#+end_verse
+
+- Each transaction consists of 6 components:
+
+|  # | transaction | description                         | [transactions] column name |
+|----+-------------+-------------------------------------+----------------------------|
+| 1. | address     | recipient of the message            | to                         |
+| 2. | signiture   | from sender                         | from                       |
+| 3. | amount      | Ether                               | value                      |
+| 4. | data        | optional field                      |                            |
+| 5. | STARTGAS    | max number of "computational steps" | gas_provided               |
+| 6. | GASPRICE    | fee per "computational step"        | gas_price                  |
+
+***** Gasprice
+- For each "computational step" => 1 Gas
+- Some computations > 1 Gas
+- For each *byte* in data => 5 Gas
+
+**** 2. Message
+#+begin_verse
+ALWAYS PRODUCED BY A CONTRACT
+#+end_verse
+
+- Each message consists of 5 components:
+
+|  # | message   | description                         |
+|----+-----------+-------------------------------------|
+| 1. | sender    | (implicit)                          |
+| 2. | recipient |                                     |
+| 3. | amount    | Ether                               |
+| 4. | data      | optional                            |
+| 5. | STARTGAS  | max number of "computational steps" |
+
+*** How to identify externally owned accounts?
+- identify by private key
+- Has *NO* contract code
+- Can be used to send messages to *contract accounts* by creating and signing a transaction
+
+**** Type of messages
+
+
+*** How does a tx relate to the involved parties?
+- ..
+
+*** How to identify a transaction used for plain ETH transfer?
+- The transaction must be between 2 *Externally Owned Accounts*
+- Both =To= and =From= cannot be found within contracts
+- They cannot be special addresses
+  (i.e. =0x0000000000000000000000000000000000000000=)
+
+#+begin_src
+SELECT *
+FROM   public.transactions
+WHERE  "from" NOT IN (
+   SELECT DISTINCT address
+   FROM public.contracts
+   )
+AND "to" NOT IN (
+   SELECT DISTINCT address
+   FROM public.contracts
+)
+AND "from" != '0x0000000000000000000000000000000000000000'
+AND "to" != '0x0000000000000000000000000000000000000000'
+AND status = 'true';
+
+
+#+end_src
+
+*** What is a WEI?
+- 1 WEI = 0.000000000000000001 ETHER
+
 * Technical Choices
-..
+
 
 ** Trade-Offs
 - ..
