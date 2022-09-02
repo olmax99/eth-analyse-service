@@ -5,18 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
-	"sync"
 	"time"
 
-	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/georgysavva/scany/pgxscan"
+	eth "eth-analyse-service/pkg/service"
 
 	oapi "github.com/swaggo/echo-swagger"
 )
@@ -73,7 +69,7 @@ var pgxConf pgx.ConnConfig
 func InitDB() error {
 	pgxConf = pgx.ConnConfig{
 		Port:     uint16(5432),
-		Host:     "psql.local",
+		Host:     "pgsql.local",
 		Database: "eth",
 		User:     "test",
 		Password: "test",
@@ -95,52 +91,9 @@ func RegisterRoutesPublic(g *echo.Group) {
 	g.GET("/gashourly/:day", GetHourlyGasByDay)
 }
 
-// ------------- Services-----------------
-type ethAnalyseServiceServer struct {
-	conn string
-	pool *pgxpool.Pool
-	mu   sync.Mutex
-
-	transactions []*resultTransactions
-	// txEOATransfer []*resultTxEOATransfer
-	hourly []*resultGetHourlyGasByDay
-}
-
-func NewEthAnalyseService(c pgx.ConnConfig) *ethAnalyseServiceServer {
-	pgxConf = c
-	srv := &ethAnalyseServiceServer{
-		conn: fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-			pgxConf.User,
-			pgxConf.Password,
-			pgxConf.Host,
-			strconv.Itoa(int(pgxConf.Port)),
-			pgxConf.Database,
-		)}
-	return srv
-}
-
 // ------------- Handlers-----------------
 
 const shortForm = "2006-Jan-02"
-
-type resultTransactions struct {
-	Txid        string         `json:"txid"`
-	BlockHeight int            `json:"block_height"`
-	BlockHash   string         `json:"block_hash"`
-	BlockTime   time.Time      `json:"block_time"`
-	From        string         `json:"from"`
-	To          string         `json:"to"`
-	Value       pgtype.Numeric `json:"value"`
-	GasProvided pgtype.Numeric `json:"gas_provided"`
-	GasUsed     pgtype.Numeric `json:"gas_used"`
-	GasPrice    pgtype.Numeric `json:"gas_price"`
-	Status      string         `json:"status"`
-}
-
-type resultGetHourlyGasByDay struct {
-	T int     `json:"t"`
-	V float64 `json:"v"`
-}
 
 // GetHourlyGasByDay
 // @Description hourly amount of fees spent by transactions between externaly owned accounts
@@ -161,55 +114,50 @@ func GetHourlyGasByDay(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"Message": "input time not valid"})
 	}
 
-	// ------------- filter on transactions between eoa only-----------------
-	if pgxConf.Host == "" {
-		return c.JSON(http.StatusNotFound, map[string]string{"Message": "pgx not connected"})
-	}
-	pgxConf = pgx.ConnConfig{
+	ctx := context.Background()
+	pgxConf := pgx.ConnConfig{
 		Port:     uint16(5432),
-		Host:     "psql.local",
+		Host:     "pgsql.local",
 		Database: "eth",
 		User:     "test",
 		Password: "test",
 	}
-	s := NewEthAnalyseService(pgxConf)
 
-	pgxCtx := context.Background()
+	s := eth.NewEthAnalyseServiceServer(eth.WithPool(ctx, pgxConf))
 
 	sqlView := fmt.Sprint(`create or replace view public."20200907_tx_eao_transfer" as
 select tx.*
-from (SELECT *
+from (SELECT *, (gas_used * gas_price * 0.000000000000000001) as wei_total
       FROM   public.transactions
       WHERE  "from" NOT IN (SELECT DISTINCT address FROM public.contracts)
       AND "to" NOT IN (SELECT DISTINCT address FROM public.contracts)
       AND "from" != '0x0000000000000000000000000000000000000000'
       AND "to" != '0x0000000000000000000000000000000000000000'
       AND status = 'true'
-      ) as tx`)
+      AND value != 0
+) as tx`)
 
-	if s.pool, err = pgxpool.Connect(pgxCtx, s.conn); err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"Message": "pgx create pool failed"})
-	}
-	defer s.pool.Close()
-	if _, err := s.pool.Exec(pgxCtx, sqlView); err != nil {
+	if err := s.PgxPoolExec(ctx, sqlView); err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
 	}
 
-	sqlSelect := fmt.Sprint(`SELECT txid, block_height, block_hash, block_time, "from", "to", value, gas_provided, gas_used, gas_price, status
-FROM public."20200907_tx_eao_transfer"`)
-	s.mu.Lock()
-	if err := pgxscan.Select(pgxCtx, s.pool, &s.transactions, sqlSelect); err != nil {
+	sqlSelect := fmt.Sprint(`select
+date_trunc('hour', block_time - interval '1 minute') as interv_start,
+date_trunc('hour', block_time - interval '1 minute')  + interval '1 hours' as interv_end,
+avg(wei_total)
+from public."20200907_tx_eao_transfer"
+    group by date_trunc('hour', block_time - interval '1 minute')
+order by interv_start`)
+
+	if err := s.PgxPoolScanSelectTransactions(ctx, sqlSelect); err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
 	}
-	s.mu.Unlock()
 
-	// -------------- calculate/aggregate hourly--------------------------------
-	if len(s.transactions) == 0 {
-		return c.JSON(http.StatusNotFound, map[string]string{"Message": "no transactions found."})
-	}
+	tx := s.ResultsGetHourlyGasByDay()
+	s.SortByBlockTime(tx)
 
 	return c.JSON(http.StatusOK, echo.Map{
-		"result": s.transactions[:5],
+		"result": tx,
 	})
 }
 

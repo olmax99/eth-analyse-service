@@ -8,23 +8,37 @@
 - [Optionally] Postman (dev api client)
 
 * ETH-Analyse-Service
-#+CAPTION: design-approach
-#+attr_html: :width 100%
-[[file:design-approach.drawio.png][file:./design-approach.drawio.png]]
+** Getting Started
+*** Step 1: Help
+#+begin_src bash
+$ make help
+#+end_src
 
-* Getting Started
-** Step 1: ..
+*** Step 2: Run test
+- Start only the postgres container
+#+begin_src bash
+$ make docker-start-postgres
 
-** Step 2: ..
+$ make test-integration [-debug]
+#+end_src
 
-** Step 3: Launch Api Server
-- ..
+*** Step 3: Launch Api Server
+- Restart without cache (avoid docker pulling existing layers)
+- or start regularly
+#+begin_src bash
+$ make docker-force-rebuild
+# OR
+$ docker-start-components
+#+end_src
 
-*** Local docker-compose
+**** Endpoint
 #+begin_src
 GET localhost:8805/api/v1/gashourly/2021-Jan-01
+#+end_src
 
-http://localhost:8803/swagger/index.html#/
+**** Clean-up
+#+begin_src bash
+$ make docker-stop
 #+end_src
 
 * General Instructions

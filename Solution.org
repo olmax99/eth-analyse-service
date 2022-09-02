@@ -111,9 +111,28 @@ AND status = 'true';
 
 * Technical Choices
 
-
 ** Trade-Offs
-- ..
+- In the end the most practical approach seemed to go with doing the data
+  workload entirely in the PGSQL engine.
+- Golang had some translation issues that made it harder to work with the data
+  such as very large Integer types.
+- On the other hand having the data workloads in Golang could have provided
+  advantages in terms of controlling the algorithms (sorting, aggregating, etc.)
+- The decision to move away from the traditional CRUD RESTful approach in favor
+  of using a service layer is a double edged sword
+- Especially, when it comes to providing server and client components using the
+  same service layer, it will be a huge advantage compared to CRUD model
+- Latter is more well-known so code readability may be affected by moving to
+  another direction
 
 ** Improvements
-- ..
+- My learning from a strongly implemented design pattern as in grpc/protobuf
+  makes me look back on a very manual and loosely style of defining the echo
+  server service (RESTful)
+- [[https://github.com/go-kit/kit][go-kit]] seems to offer a very interesting approach and touching on many of the
+  paradigms implemented in grpc. (i.e. especially the service first
+  definition approach but also focuses on separation of concerns and their
+  abstract definitions with interfaces)
+- I also want to look into [[https://github.com/GrantZheng/kit][go-kit code generators]].
+- [[https://github.com/asim/go-micro][https://github.com/asim/go-micro]]
+

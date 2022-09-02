@@ -9,9 +9,9 @@ services:
     networks:
       - eth-analyse
     depends_on:
-      psql.local:
+      pgsql.local:
         condition: service_healthy
-  psql.local:
+  pgsql.local:
     image: glassnode/code-challenge-2020-database:latest
     restart: always
     environment:
